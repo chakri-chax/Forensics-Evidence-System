@@ -20,132 +20,34 @@ npm install
 Create a `.env` file in the root directory:
 
 ```
+PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+
 VITE_PINATA_JWT=your_pinata_jwt_token
 VITE_PINATA_GATEWAY=gateway.pinata.cloud
 ```
 
 Get your Pinata JWT from: https://app.pinata.cloud/developers/api-keys
 
-### Step 3: Deploy Smart Contract
+### Step 3: RUN Hardhat Node
 
-Deploy the EvidenceManagement smart contract to your desired Ethereum network.
+```bash
+npx hardhat node
+```
 
-Smart Contract Code:
+Run the Hardhat node in a separate terminal.
 
-```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+### Step 3: Compile Contracts
 
-contract EvidenceManagement {
-    address public owner;
-    uint256 public caseCount;
+```bash
+npx hardhat compile
+```
 
-    struct Case {
-        uint256 caseId;
-        string caseName;
-        string status;
-        address owner;
-        uint256 timestamp;
-        string[] evidence;
-    }
+Compile the smart contracts.
 
-    mapping(uint256 => Case) public cases;
-    mapping(uint256 => mapping(address => bool)) public authorizedUsers;
-    mapping(uint256 => address[]) private authorizedUsersList;
+### Step 4: Deploy Contracts
 
-    event CaseCreated(uint256 indexed caseId, string caseName, address owner);
-    event EvidenceAdded(uint256 indexed caseId, string cid, address uploader);
-    event UserAuthorized(uint256 indexed caseId, address user);
-    event UserRevoked(uint256 indexed caseId, address user);
-    event CaseStatusUpdated(uint256 indexed caseId, string newStatus);
-
-    constructor() {
-        owner = msg.sender;
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner can perform this action");
-        _;
-    }
-
-    modifier onlyCaseOwner(uint256 _caseId) {
-        require(msg.sender == cases[_caseId].owner, "Only case owner can perform this action");
-        _;
-    }
-
-    modifier onlyAuthorized(uint256 _caseId) {
-        require(authorizedUsers[_caseId][msg.sender], "Not authorized to access this case");
-        _;
-    }
-
-    function createCase(string memory _caseName) public onlyOwner {
-        caseCount++;
-        cases[caseCount] = Case({
-            caseId: caseCount,
-            caseName: _caseName,
-            status: "Open",
-            owner: msg.sender,
-            timestamp: block.timestamp,
-            evidence: new string[](0)
-        });
-
-        authorizedUsers[caseCount][msg.sender] = true;
-        authorizedUsersList[caseCount].push(msg.sender);
-
-        emit CaseCreated(caseCount, _caseName, msg.sender);
-    }
-
-    function authorizeUser(uint256 _caseId, address _user) public onlyCaseOwner(_caseId) {
-        require(!authorizedUsers[_caseId][_user], "User already authorized");
-        authorizedUsers[_caseId][_user] = true;
-        authorizedUsersList[_caseId].push(_user);
-
-        emit UserAuthorized(_caseId, _user);
-    }
-
-    function revokeUser(uint256 _caseId, address _user) public onlyCaseOwner(_caseId) {
-        require(authorizedUsers[_caseId][_user], "User not authorized");
-        authorizedUsers[_caseId][_user] = false;
-
-        emit UserRevoked(_caseId, _user);
-    }
-
-    function addEvidence(uint256 _caseId, string memory _cid) public onlyAuthorized(_caseId) {
-        cases[_caseId].evidence.push(_cid);
-
-        emit EvidenceAdded(_caseId, _cid, msg.sender);
-    }
-
-    function updateCaseStatus(uint256 _caseId, string memory _newStatus) public onlyCaseOwner(_caseId) {
-        cases[_caseId].status = _newStatus;
-
-        emit CaseStatusUpdated(_caseId, _newStatus);
-    }
-
-    function getCase(uint256 _caseId) public view onlyAuthorized(_caseId) returns (
-        uint256,
-        string memory,
-        string memory,
-        address,
-        uint256,
-        string[] memory
-    ) {
-        Case memory c = cases[_caseId];
-        return (c.caseId, c.caseName, c.status, c.owner, c.timestamp, c.evidence);
-    }
-
-    function getCaseEvidence(uint256 _caseId) public view onlyAuthorized(_caseId) returns (string[] memory) {
-        return cases[_caseId].evidence;
-    }
-
-    function isAuthorized(uint256 _caseId, address _user) public view returns (bool) {
-        return authorizedUsers[_caseId][_user];
-    }
-
-    function getAuthorizedUsers(uint256 _caseId) public view onlyAuthorized(_caseId) returns (address[] memory) {
-        return authorizedUsersList[_caseId];
-    }
-}
+```bash
+npx hardhat run .\scripts\caseManagementDeploy.cjs --network localhost
 ```
 
 ### Step 4: Update Contract Address
@@ -153,7 +55,7 @@ contract EvidenceManagement {
 Edit `src/utils/contractABI.ts` and replace the contract address:
 
 ```typescript
-export const CONTRACT_ADDRESS = "YOUR_DEPLOYED_CONTRACT_ADDRESS";
+export const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 ```
 
 ### Step 5: Run Development Server

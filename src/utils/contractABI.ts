@@ -3,4 +3,4 @@ import ABI from "../../artifacts/contracts/CaseManagementSystem.sol/CaseManageme
 export const CONTRACT_ABI = ABI.abi;
 
 
-export const CONTRACT_ADDRESS = "0x68B1D87F95878fE05B998F19b66F4baba5De1aed";
+export const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";

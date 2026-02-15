@@ -2,6 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect } from "react";
 const {PINATA_GATEWAY} = import.meta.env.VITE_PINATA_GATEWAY || "gateway.pinata.cloud";
+import { showToast } from '../components/Toast';
+import {decodeContractError} from '../utils/contractErrors';
 import { 
   ArrowLeft, 
   Upload, 
@@ -166,67 +168,78 @@ const CaseDetail = ({ caseId, onBack, walletAddress }: CaseDetailProps) => {
   };
 
   const handleUploadEvidence = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedFile || !caseData) return;
+  e.preventDefault();
+  if (!selectedFile || !caseData) return;
 
-    setIsUploading(true);
-    setError(null);
-    setSuccess(null);
+  setIsUploading(true);
+  setError(null);
+  setSuccess(null);
 
-    try {
-      // Upload file to Pinata
-      const cid = await uploadToPinata(selectedFile);
-      console.log(`File uploaded to IPFS with CID: ${cid}`);
-      console.log("payload",{
-        fileName: selectedFile.name,
-        fileType: selectedFile.type || 'application/octet-stream',
-        ipfsCID: cid,
-        size: selectedFile.size,
-        timestamp: Date.now(),
-        otherMetadata: JSON.stringify({
-          originalName: selectedFile.name,
-          lastModified: selectedFile.lastModified,
-          uploadedAt: new Date().toISOString()
-        }),
-        submittedBy: walletAddress
-      })
-      // Prepare evidence data
-      const evidenceData = {
-        fileName: selectedFile.name,
-        fileType: selectedFile.type || 'application/octet-stream',
-        ipfsCID: cid,
-        size: selectedFile.size,
-        timestamp: Date.now(),
-        otherMetadata: JSON.stringify({
-          originalName: selectedFile.name,
-          lastModified: selectedFile.lastModified,
-          uploadedAt: new Date().toISOString()
-        }),
-        submittedBy: walletAddress
-      };
+  const toastId = showToast.loading("Uploading file to IPFS...");
 
-      // Add evidence to blockchain
-      const contract = await getContract();
-      const tx = await contract.addEvidence(caseId, evidenceData);
-      await tx.wait();
+  try {
+    // 🔹 Upload file to Pinata
+    const cid = await uploadToPinata(selectedFile);
 
-      setSuccess("Evidence uploaded successfully!");
-      setSelectedFile(null);
-      
-      // Reset file input
-      const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
-      
-      // Reload case data
-      await loadCaseData();
-      
-    } catch (err) {
-      console.error("Upload error:", err);
-      setError(err instanceof Error ? err.message : "Failed to upload evidence");
-    } finally {
-      setIsUploading(false);
-    }
-  };
+    showToast.loading("File uploaded. Preparing blockchain transaction...");
+
+    const evidenceData = {
+      fileName: selectedFile.name,
+      fileType: selectedFile.type || 'application/octet-stream',
+      ipfsCID: cid,
+      size: selectedFile.size,
+      timestamp: Date.now(),
+      otherMetadata: JSON.stringify({
+        originalName: selectedFile.name,
+        lastModified: selectedFile.lastModified,
+        uploadedAt: new Date().toISOString()
+      }),
+      submittedBy: walletAddress
+    };
+
+    // 🔹 Add evidence to blockchain
+    const contract = await getContract();
+    const tx = await contract.addEvidence(caseId, evidenceData);
+
+    showToast.loading("Waiting for transaction confirmation...");
+    const receipt = await tx.wait();
+
+    showToast.dismiss(toastId);
+
+    showToast.success(
+      <div>
+        <p className="font-semibold">✓ Evidence Uploaded</p>
+        <p className="text-sm text-gray-300">
+          File: {selectedFile.name}
+        </p>
+        <p className="text-xs text-gray-400 mt-1">
+          Block: {receipt.blockNumber}
+        </p>
+      </div>,
+      6000
+    );
+
+    setSuccess("Evidence uploaded successfully!");
+    setSelectedFile(null);
+
+    const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
+
+    await loadCaseData();
+
+  } catch (err: any) {
+    showToast.dismiss(toastId);
+    console.error("Upload error:", err);
+
+    const errorMessage = decodeContractError(err);
+    showToast.error(errorMessage);
+
+    setError(errorMessage);
+  } finally {
+    setIsUploading(false);
+  }
+};
+
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleString('en-US', {

@@ -11,6 +11,7 @@ import { decodeContractError } from '../utils/contractErrors';
 interface AdminDashboardProps {
   onCaseCreated: () => void;
   walletAddress: string;
+  hasWriteAccess: boolean;
 }
 interface AccessInfo {
   address: string;
@@ -43,7 +44,7 @@ interface CaseDetails {
   otherMetadata: string;
 }
 
-const AdminDashboard = ({ walletAddress, onCaseCreated }: AdminDashboardProps) => {
+const AdminDashboard = ({ walletAddress, onCaseCreated, hasWriteAccess }: AdminDashboardProps) => {
   const [caseDetails, setCaseDetails] = useState<CaseDetails>({
     // Case Details
     caseId: "MH-1234",
@@ -83,7 +84,7 @@ const AdminDashboard = ({ walletAddress, onCaseCreated }: AdminDashboardProps) =
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
 
-
+// console.log("hasWriteAccess:", hasWriteAccess);
   const [caseName, setCaseName] = useState("");
 
   const [isOwner, setIsOwner] = useState(false);
@@ -225,7 +226,7 @@ const AdminDashboard = ({ walletAddress, onCaseCreated }: AdminDashboardProps) =
           6000
         );
 
-        console.log("Case created successfully with transaction hash:", tx.hash);
+        // console.log("Case created successfully with transaction hash:", tx.hash);
 
       } catch (error: any) {
         showToast.dismiss(toastId);
@@ -310,7 +311,6 @@ const AdminDashboard = ({ walletAddress, onCaseCreated }: AdminDashboardProps) =
       const contract = await getReadOnlyContract();
       const accessListResult = await contract.getAccessList();
 
-
       // Convert the result to an array if it's not already
       const addresses = Array.isArray(accessListResult)
         ? accessListResult
@@ -337,7 +337,7 @@ const AdminDashboard = ({ walletAddress, onCaseCreated }: AdminDashboardProps) =
           console.error(`Error checking access for ${address}:`, err);
         }
       }
-
+      // console.log(accessInfoList);
       setAccessList(accessInfoList);
     } catch (err) {
       console.error("Error loading access list:", err);

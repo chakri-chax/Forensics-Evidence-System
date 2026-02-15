@@ -7,7 +7,7 @@ import CaseList from "./pages/CaseList";
 import CaseDetail from "./pages/CaseDetail";
 import Navbar from "./components/Navbar";
 import { ToastProvider } from './components/Toast';
-
+import NoAccess from "./pages/NoAccess";
 type View = "dashboard" | "cases" | "case-detail";
 
 function App() {
@@ -45,7 +45,26 @@ function App() {
   if (!walletAddress) {
     return <WalletConnect onConnect={handleConnect} />;
   }
+  // If connected but no permissions
+  if (!isAdmin && !hasReadAccess && !hasWriteAccess) {
+    return (
+      <ToastProvider>
+        <div className="min-h-screen bg-police-blue-dark">
+          <Navbar
+            walletAddress={walletAddress}
+            isAdmin={isAdmin}
+            onDisconnect={handleDisconnect}
+          />
+          <NoAccess walletAddress={walletAddress} />
+        </div>
+      </ToastProvider>
+    );
+  }
 
+  // console.log("walletAddress", walletAddress);
+  // console.log("hasReadAccess", hasReadAccess);
+  // console.log("hasWriteAccess", hasWriteAccess);
+  // console.log("isAdmin", isAdmin);
 
   return (
     <>
@@ -64,7 +83,8 @@ function App() {
                 <div className="flex gap-2 py-3">
 
                   {/* Admin Dashboard - Only Admin */}
-                  {isAdmin && (
+                  {/* Dashboard - Admin OR Write */}
+                  {(isAdmin || hasWriteAccess) && (
                     <button
                       onClick={() => setCurrentView("dashboard")}
                       className={`px-4 py-2 font-semibold transition-colors ${currentView === "dashboard"
@@ -72,17 +92,18 @@ function App() {
                           : "text-gray-400 hover:text-white"
                         }`}
                     >
-                      Admin Dashboard
+                      {isAdmin ? "Admin Dashboard" : "Create Case"}
                     </button>
                   )}
+
 
                   {/* Case Explorer - Read OR Write OR Admin */}
                   {(hasReadAccess || hasWriteAccess || isAdmin) && (
                     <button
                       onClick={() => setCurrentView("cases")}
                       className={`px-4 py-2 font-semibold transition-colors ${currentView === "cases" || currentView === "case-detail"
-                          ? "bg-police-red text-white"
-                          : "text-gray-400 hover:text-white"
+                        ? "bg-police-red text-white"
+                        : "text-gray-400 hover:text-white"
                         }`}
                     >
                       Case Explorer
@@ -95,8 +116,8 @@ function App() {
           )}
 
 
-          {currentView === "dashboard" && isAdmin && (
-            <AdminDashboard walletAddress={walletAddress} onCaseCreated={handleCaseCreated} />
+          {currentView === "dashboard" && (isAdmin || hasWriteAccess) && (
+            <AdminDashboard walletAddress={walletAddress} onCaseCreated={handleCaseCreated} hasWriteAccess={hasWriteAccess} />
           )}
 
           {currentView === "cases" && (hasReadAccess || hasWriteAccess || isAdmin) && (
