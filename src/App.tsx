@@ -61,10 +61,10 @@ function App() {
     );
   }
 
-  // console.log("walletAddress", walletAddress);
-  // console.log("hasReadAccess", hasReadAccess);
-  // console.log("hasWriteAccess", hasWriteAccess);
-  // console.log("isAdmin", isAdmin);
+  // // console.log("walletAddress", walletAddress);
+  // // console.log("hasReadAccess", hasReadAccess);
+  // // console.log("hasWriteAccess", hasWriteAccess);
+  // // console.log("isAdmin", isAdmin);
 
   return (
     <>

@@ -1,17 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect } from "react";
-const {PINATA_GATEWAY} = import.meta.env.VITE_PINATA_GATEWAY || "gateway.pinata.cloud";
+const { PINATA_GATEWAY } = import.meta.env.VITE_PINATA_GATEWAY || "gateway.pinata.cloud";
 import { showToast } from '../components/Toast';
-import {decodeContractError} from '../utils/contractErrors';
-import { 
-  ArrowLeft, 
-  Upload, 
-  Info, 
-  Users, 
-  Building2, 
-  Mail, 
-  Phone, 
+import { decodeContractError } from '../utils/contractErrors';
+import { getProvider } from '../utils/ethereum';
+import {
+  ArrowLeft,
+  Upload,
+  Info,
+  Users,
+  Building2,
+  Mail,
+  Phone,
   Calendar,
   User,
   FileText,
@@ -74,9 +75,19 @@ const CaseDetail = ({ caseId, onBack, walletAddress }: CaseDetailProps) => {
   const loadCaseData = async () => {
     setIsLoading(false);
     setError(null);
-    
+
     try {
-      const contract = await getReadOnlyContract();
+
+
+      let contract = await getReadOnlyContract();
+
+      const provider = getProvider();
+      // Ensure contract is connected to signer
+      const signer = await provider.getSigner();
+      contract = contract.connect(signer);
+
+
+
       // Check access permissions
       const writeAccess = await contract.hasWriteAccess(walletAddress);
       const readAccess = await contract.hasReadAccess(walletAddress);
@@ -92,7 +103,7 @@ const CaseDetail = ({ caseId, onBack, walletAddress }: CaseDetailProps) => {
       const data = await contract.getCase(caseId);
       // Get evidence with pagination
       const evidence = await contract.getCaseEvidence(caseId, evidencePage * evidencePerPage, evidencePerPage);
-      
+
       // Transform contract data to frontend Case type
       const transformedCase: Case = {
         caseId: Number(data.id),
@@ -117,7 +128,7 @@ const CaseDetail = ({ caseId, onBack, walletAddress }: CaseDetailProps) => {
         evidenceCount: data.evidence?.length || 0,
         authorizedUsers: [], // This would need a separate call if needed
         isActive: data.isActive,
-        
+
         // User details
         userDetails: {
           userType: Number(data.userDetails.userType),
@@ -134,7 +145,7 @@ const CaseDetail = ({ caseId, onBack, walletAddress }: CaseDetailProps) => {
           createdAt: Number(data.userDetails.createdAt),
           updatedAt: Number(data.userDetails.updatedAt)
         },
-        
+
         // Derived fields
         organization: data.userDetails.organizationName,
         contactPerson: data.userDetails.name,
@@ -145,7 +156,7 @@ const CaseDetail = ({ caseId, onBack, walletAddress }: CaseDetailProps) => {
 
       setTotalEvidence(data.evidence?.length || 0);
       setCaseData(transformedCase);
-      
+
     } catch (err) {
       console.error("Error loading case:", err);
       setError(err instanceof Error ? err.message : "Failed to load case");
@@ -168,77 +179,77 @@ const CaseDetail = ({ caseId, onBack, walletAddress }: CaseDetailProps) => {
   };
 
   const handleUploadEvidence = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!selectedFile || !caseData) return;
+    e.preventDefault();
+    if (!selectedFile || !caseData) return;
 
-  setIsUploading(true);
-  setError(null);
-  setSuccess(null);
+    setIsUploading(true);
+    setError(null);
+    setSuccess(null);
 
-  const toastId = showToast.loading("Uploading file to IPFS...");
+    const toastId = showToast.loading("Uploading file to IPFS...");
 
-  try {
-    // 🔹 Upload file to Pinata
-    const cid = await uploadToPinata(selectedFile);
+    try {
+      // 🔹 Upload file to Pinata
+      const cid = await uploadToPinata(selectedFile);
 
-    showToast.loading("File uploaded. Preparing blockchain transaction...");
+      showToast.loading("File uploaded. Preparing blockchain transaction...");
 
-    const evidenceData = {
-      fileName: selectedFile.name,
-      fileType: selectedFile.type || 'application/octet-stream',
-      ipfsCID: cid,
-      size: selectedFile.size,
-      timestamp: Date.now(),
-      otherMetadata: JSON.stringify({
-        originalName: selectedFile.name,
-        lastModified: selectedFile.lastModified,
-        uploadedAt: new Date().toISOString()
-      }),
-      submittedBy: walletAddress
-    };
+      const evidenceData = {
+        fileName: selectedFile.name,
+        fileType: selectedFile.type || 'application/octet-stream',
+        ipfsCID: cid,
+        size: selectedFile.size,
+        timestamp: Date.now(),
+        otherMetadata: JSON.stringify({
+          originalName: selectedFile.name,
+          lastModified: selectedFile.lastModified,
+          uploadedAt: new Date().toISOString()
+        }),
+        submittedBy: walletAddress
+      };
 
-    // 🔹 Add evidence to blockchain
-    const contract = await getContract();
-    const tx = await contract.addEvidence(caseId, evidenceData);
+      // 🔹 Add evidence to blockchain
+      const contract = await getContract();
+      const tx = await contract.addEvidence(caseId, evidenceData);
 
-    showToast.loading("Waiting for transaction confirmation...");
-    const receipt = await tx.wait();
+      showToast.loading("Waiting for transaction confirmation...");
+      const receipt = await tx.wait();
 
-    showToast.dismiss(toastId);
+      showToast.dismiss(toastId);
 
-    showToast.success(
-      <div>
-        <p className="font-semibold">✓ Evidence Uploaded</p>
-        <p className="text-sm text-gray-300">
-          File: {selectedFile.name}
-        </p>
-        <p className="text-xs text-gray-400 mt-1">
-          Block: {receipt.blockNumber}
-        </p>
-      </div>,
-      6000
-    );
+      showToast.success(
+        <div>
+          <p className="font-semibold">✓ Evidence Uploaded</p>
+          <p className="text-sm text-gray-300">
+            File: {selectedFile.name}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Block: {receipt.blockNumber}
+          </p>
+        </div>,
+        6000
+      );
 
-    setSuccess("Evidence uploaded successfully!");
-    setSelectedFile(null);
+      setSuccess("Evidence uploaded successfully!");
+      setSelectedFile(null);
 
-    const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-    if (fileInput) fileInput.value = '';
+      const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
 
-    await loadCaseData();
+      await loadCaseData();
 
-  } catch (err: any) {
-    showToast.dismiss(toastId);
-    console.error("Upload error:", err);
+    } catch (err: any) {
+      showToast.dismiss(toastId);
+      console.error("Upload error:", err);
 
-    const errorMessage = decodeContractError(err);
-    showToast.error(errorMessage);
+      const errorMessage = decodeContractError(err);
+      showToast.error(errorMessage);
 
-    setError(errorMessage);
-  } finally {
-    setIsUploading(false);
-  }
-};
+      setError(errorMessage);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
 
   const formatDate = (timestamp: number) => {
@@ -281,7 +292,7 @@ const CaseDetail = ({ caseId, onBack, walletAddress }: CaseDetailProps) => {
           <ArrowLeft className="w-5 h-5" />
           Back to Cases
         </button>
-        
+
         {caseData.isActive === false && (
           <span className="bg-red-900 text-red-200 px-3 py-1 text-sm font-semibold">
             Case Deactivated
@@ -305,31 +316,28 @@ const CaseDetail = ({ caseId, onBack, walletAddress }: CaseDetailProps) => {
       <div className="flex border-b border-gray-700 mb-6">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`px-4 py-2 font-medium text-sm ${
-            activeTab === 'overview'
+          className={`px-4 py-2 font-medium text-sm ${activeTab === 'overview'
               ? 'text-police-red border-b-2 border-police-red'
               : 'text-gray-400 hover:text-white'
-          }`}
+            }`}
         >
           Overview
         </button>
         <button
           onClick={() => setActiveTab('evidence')}
-          className={`px-4 py-2 font-medium text-sm ${
-            activeTab === 'evidence'
+          className={`px-4 py-2 font-medium text-sm ${activeTab === 'evidence'
               ? 'text-police-red border-b-2 border-police-red'
               : 'text-gray-400 hover:text-white'
-          }`}
+            }`}
         >
           Evidence ({totalEvidence})
         </button>
         <button
           onClick={() => setActiveTab('details')}
-          className={`px-4 py-2 font-medium text-sm ${
-            activeTab === 'details'
+          className={`px-4 py-2 font-medium text-sm ${activeTab === 'details'
               ? 'text-police-red border-b-2 border-police-red'
               : 'text-gray-400 hover:text-white'
-          }`}
+            }`}
         >
           User Details
         </button>
@@ -383,7 +391,7 @@ const CaseDetail = ({ caseId, onBack, walletAddress }: CaseDetailProps) => {
                   </div>
                   <h2 className="text-lg font-bold text-white">Organization Information</h2>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-gray-400 mb-1">Organization Name</p>
@@ -412,7 +420,7 @@ const CaseDetail = ({ caseId, onBack, walletAddress }: CaseDetailProps) => {
                   </div>
                   <h2 className="text-lg font-bold text-white">Contact Person</h2>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-gray-400 mb-1">Name</p>
@@ -497,9 +505,9 @@ const CaseDetail = ({ caseId, onBack, walletAddress }: CaseDetailProps) => {
                   </div>
                   <h2 className="text-xl font-bold text-white">Evidence Timeline</h2>
                 </div>
-                
-                <EvidenceTimeline 
-                  evidence={caseData.evidence} 
+
+                <EvidenceTimeline
+                  evidence={caseData.evidence}
                   totalCount={totalEvidence}
                   currentPage={evidencePage}
                   onPageChange={setEvidencePage}
@@ -514,7 +522,7 @@ const CaseDetail = ({ caseId, onBack, walletAddress }: CaseDetailProps) => {
               {/* Full User Details */}
               <div className="card">
                 <h3 className="text-lg font-bold text-white mb-4">Complete User Information</h3>
-                
+
                 <div className="space-y-6">
                   <div>
                     <h4 className="text-sm font-semibold text-gray-400 mb-3">Basic Information</h4>
@@ -661,7 +669,7 @@ const CaseDetail = ({ caseId, onBack, walletAddress }: CaseDetailProps) => {
                       <span>{formatDate(item.timestamp)}</span>
                     </div>
                     {item.ipfsCID && (
-                      <a 
+                      <a
                         href={`${PINATA_GATEWAY}/${item.ipfsCID}`}
                         target="_blank"
                         rel="noopener noreferrer"

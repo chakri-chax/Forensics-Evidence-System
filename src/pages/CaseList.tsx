@@ -6,7 +6,7 @@ import { Case } from "../types";
 import { getReadOnlyContract } from "../utils/ethereum";
 import CaseCard from "../components/CaseCard";
 import LoadingSpinner from "../components/LoadingSpinner";
-
+import { getProvider } from "../utils/ethereum";
 interface CaseListProps {
   walletAddress: string;
   onCaseSelect: (caseId: number) => void;
@@ -91,13 +91,13 @@ const CaseList = ({ walletAddress, onCaseSelect, refreshTrigger }: CaseListProps
   const loadCases = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const contract = await getReadOnlyContract();
-      
+
       // Check if user has read access first
       const hasReadAccess = await contract.hasReadAccess(walletAddress);
-      
+      // console.log("Has read access:", hasReadAccess);
       if (!hasReadAccess) {
         setError("You don't have read access to view cases");
         setCases([]);
@@ -106,12 +106,34 @@ const CaseList = ({ walletAddress, onCaseSelect, refreshTrigger }: CaseListProps
       }
 
       // Get total case count
-      const totalCases = await contract.getTotalCases();
       const loadedCases: ExtendedCase[] = [];
 
+      let totalCases = 0;
+      let contractWithSigner ;
+      try {
+        // console.log("walletAddress", walletAddress);
+        const provider = getProvider();
+        // Ensure contract is connected to signer
+        const signer = await provider.getSigner();
+         contractWithSigner = contract.connect(signer);
+
+        // Verify access
+        const hasRead = await contractWithSigner.hasReadAccess(walletAddress);
+        // console.log("hasReadAccess:", hasRead);
+
+        if (!hasRead) {
+          throw new Error("Wallet does not have read access");
+        }
+
+        // Now call with the connected contract
+        totalCases = await contractWithSigner.getTotalCases();
+        // console.log("Total cases:", totalCases);
+      } catch (err) {
+        console.error("Error loading cases:", err);
+      }
       // Load cases created by this user (if any)
-      const userCases = await contract.getCasesByCreator(walletAddress, 0, 100);
-      
+      const userCases = await contractWithSigner.getCasesByCreator(walletAddress, 0, 100);
+
       // Process user's own cases first
       for (const caseData of userCases) {
         try {
@@ -128,14 +150,14 @@ const CaseList = ({ walletAddress, onCaseSelect, refreshTrigger }: CaseListProps
         const batchSize = 10;
         for (let i = 1; i <= Math.min(Number(totalCases), 50); i += batchSize) {
           const end = Math.min(i + batchSize - 1, Number(totalCases));
-          
+
           const promises = [];
           for (let j = i; j <= end; j++) {
-            promises.push(contract.getCase(j));
+            promises.push(contractWithSigner.getCase(j));
           }
-          
+
           const casesBatch = await Promise.all(promises);
-          
+
           for (const caseData of casesBatch) {
             try {
               // Check if we already added this case
@@ -152,10 +174,10 @@ const CaseList = ({ walletAddress, onCaseSelect, refreshTrigger }: CaseListProps
 
       // Sort by most recent first
       loadedCases.sort((a, b) => (b.createdAt === undefined ? 0 : b.createdAt) - (a.createdAt === undefined ? 0 : a.createdAt));
-      
+
       setCases(loadedCases);
       setFilteredCases(loadedCases);
-      
+
     } catch (err) {
       console.error("Error loading cases:", err);
       setError(err instanceof Error ? err.message : "Failed to load cases");
@@ -169,7 +191,7 @@ const CaseList = ({ walletAddress, onCaseSelect, refreshTrigger }: CaseListProps
     // Get evidence count (pagination)
     let evidenceCount = 0;
     try {
-      const evidence = await getReadOnlyContract().getCaseEvidence(caseData.id, 0, 1);
+      // const evidence = await getReadOnlyContract().getCaseEvidence(caseData.id, 0, 1);
       evidenceCount = caseData.evidence?.length || 0;
     } catch (err) {
       console.error("Error loading evidence count:", err);
@@ -189,7 +211,7 @@ const CaseList = ({ walletAddress, onCaseSelect, refreshTrigger }: CaseListProps
       evidence: caseData.evidence || [],
       evidenceCount: evidenceCount,
       authorizedUsers: [], // This can be implemented if needed
-      
+
       // New fields from enhanced contract
       userDetails: {
         userType: caseData.userDetails.userType,
@@ -206,7 +228,7 @@ const CaseList = ({ walletAddress, onCaseSelect, refreshTrigger }: CaseListProps
         createdAt: Number(caseData.userDetails.createdAt),
         updatedAt: Number(caseData.userDetails.updatedAt)
       },
-      
+
       // Derived fields for easier access
       organization: caseData.userDetails.organizationName,
       contactPerson: caseData.userDetails.name,
