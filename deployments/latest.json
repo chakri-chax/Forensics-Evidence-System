@@ -1,0 +1,9 @@
+{
+  "contract": "CaseManagementSystem",
+  "address": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "network": "localhost",
+  "transactionHash": "0x9917462e3f43c49dae160803b9dc2281561c1e75ebb01c751afc621bbf8c56cc",
+  "timestamp": "2026-02-15T07:36:41.500Z"
+}

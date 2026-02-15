@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-police-blue-dark text-gray-light;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-police-red hover:bg-police-red-dark text-white font-semibold py-2 px-6 transition-colors duration-200;
+  }
+
+  .btn-secondary {
+    @apply bg-police-blue hover:bg-police-blue-light text-white font-semibold py-2 px-6 transition-colors duration-200;
+  }
+
+  .card {
+    @apply bg-police-blue border border-police-blue-light p-6;
+  }
+
+  .input-field {
+    @apply w-full bg-police-blue-dark border border-police-blue-light text-gray-light px-4 py-2 focus:outline-none focus:border-police-red-accent;
+  }
+}
