@@ -1,13 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect } from "react";
-import { PlusCircle, Users, FileText, Shield, ShieldOff, RefreshCw } from "lucide-react";
+import { PlusCircle, Users, FileText, Shield, ShieldOff, RefreshCw, Upload, ExternalLink } from "lucide-react";
 import { getContract, getReadOnlyContract, formatAddress } from "../utils/ethereum";
 import { CaseStatus } from "../types";
 import { showToast } from '../components/Toast';
 import { toast } from 'react-hot-toast';
 import { decodeContractError } from '../utils/contractErrors';
-
+    // Upload file to Pinata
+import { uploadToPinata } from "../utils/pinata";
 interface AdminDashboardProps {
   onCaseCreated: () => void;
   walletAddress: string;
@@ -47,28 +48,28 @@ interface CaseDetails {
 const AdminDashboard = ({ walletAddress, onCaseCreated, hasWriteAccess }: AdminDashboardProps) => {
   const [caseDetails, setCaseDetails] = useState<CaseDetails>({
     // Case Details
-    caseId: "MH-1234",
-    caseName: "THEIF ABSCONDED",
+    caseId: "",
+    caseName: "",
 
     // User Details
     userType: "Examiner",
     otherUserType: "",
-    name: "UJAITH SINGH",
-    phone: "9100857258",
-    email: "ujaith.singh@pm.me",
-    orgDeptId: "RJ-1234",
-    organizationName: "RAJASTHAN POLICE",
-    pointOfContact: "UJAITH SINGH",
-    designation: "EXAMINER",
-    department: "FORENSICS",
+    name: "",
+    phone: "",
+    email: "",
+    orgDeptId: "",
+    organizationName: "",
+    pointOfContact: "",
+    designation: "",
+    department: "",
 
     // Evidence Data
-    fileName: "THIEF_ABSCONDED",
-    fileType: "pdf",
-    ipfsCid: "bafkreifzireyepwxt3onr34lmwbmyzx43ikzh26ddmpyeaxf2kxnka6w6u",
-    size: 245,
-    dateTime: "2023-01-01 12:34:56",
-    otherMetadata: " META DATA"
+    fileName: "",
+    fileType: "",
+    ipfsCid: "",
+    size: 0,
+    dateTime: "",
+    otherMetadata: "WRITE META DATA"
   });
 
   const [isCreating, setIsCreating] = useState(false);
@@ -83,8 +84,12 @@ const AdminDashboard = ({ walletAddress, onCaseCreated, hasWriteAccess }: AdminD
   const [newStatus, setNewStatus] = useState(CaseStatus.OPEN);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+const [isUploading, setIsUploading] = useState(false);
+const [uploadSuccess, setUploadSuccess] = useState(false);
+const [uploadedCID, setUploadedCID] = useState("");
 
-// // console.log("hasWriteAccess:", hasWriteAccess);
+  // // console.log("hasWriteAccess:", hasWriteAccess);
   const [caseName, setCaseName] = useState("");
 
   const [isOwner, setIsOwner] = useState(false);
@@ -719,6 +724,68 @@ const AdminDashboard = ({ walletAddress, onCaseCreated, hasWriteAccess }: AdminD
       setIsTransferring(false);
     }
   };
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (e.target.files && e.target.files[0]) {
+    const file = e.target.files[0];
+    setSelectedFile(file);
+    setError(null);
+    setUploadSuccess(false);
+    
+    // Auto-fill form fields
+    setCaseDetails(prev => ({
+      ...prev,
+      fileName: file.name,
+      fileType: file.type || 'application/octet-stream',
+      size: file.size,
+      dateTime: new Date().toISOString().slice(0, 16) // Format for datetime-local
+    }));
+  }
+};
+
+const handleFileUpload = async () => {
+  if (!selectedFile) return;
+
+  setIsUploading(true);
+  setError(null);
+  setUploadSuccess(false);
+
+  const toastId = showToast.loading("Uploading file to IPFS via Pinata...");
+
+  try {
+    const cid = await uploadToPinata(selectedFile);
+    
+    showToast.dismiss(toastId);
+    showToast.success(`File uploaded successfully! CID: ${cid}`);
+    
+    // Update form with CID
+    setCaseDetails(prev => ({
+      ...prev,
+      ipfsCid: cid,
+      otherMetadata: JSON.stringify({
+        originalName: selectedFile.name,
+        lastModified: selectedFile.lastModified,
+        uploadedAt: new Date().toISOString(),
+        fileSize: selectedFile.size,
+        mimeType: selectedFile.type
+      }, null, 2)
+    }));
+    
+    setUploadedCID(cid);
+    setUploadSuccess(true);
+    
+  } catch (err: any) {
+    showToast.dismiss(toastId);
+    console.error("Upload error:", err);
+    
+    const errorMessage = err.message || "Failed to upload file to IPFS";
+    showToast.error(errorMessage);
+    setError(errorMessage);
+    
+  } finally {
+    setIsUploading(false);
+  }
+};
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
@@ -940,8 +1007,116 @@ const AdminDashboard = ({ walletAddress, onCaseCreated, hasWriteAccess }: AdminD
             </div>
 
             {/* Evidence Data Section */}
+            {/* Evidence Data Section */}
             <div className="border border-gray-700 p-4">
-              <h3 className="text-lg font-semibold text-white mb-4">Evidence Data</h3>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-police-red-accent p-2">
+                  <Upload className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-semibold text-white">Upload Evidence</h3>
+              </div>
+
+              {/* File Upload Section */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-400 mb-2">
+                  Select File to Upload
+                </label>
+                <input
+                  id="file-upload"
+                  type="file"
+                  onChange={handleFileSelect}
+                  className="input-field"
+                  accept="*/*"
+                />
+
+                {/* File Preview */}
+                {selectedFile && (
+                  <div className="mt-4 bg-police-blue-dark p-4 rounded border border-gray-700">
+                    <h4 className="text-sm font-semibold text-white mb-3">File Details</h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs text-gray-400">File Name</p>
+                        <p className="text-white">{selectedFile.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400">File Type</p>
+                        <p className="text-white">{selectedFile.type || 'Unknown'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400">Size</p>
+                        <p className="text-white">{(selectedFile.size / 1024).toFixed(2)} KB ({selectedFile.size} bytes)</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400">Last Modified</p>
+                        <p className="text-white">{new Date(selectedFile.lastModified).toLocaleString()}</p>
+                      </div>
+                    </div>
+
+                    {/* Upload Button (only shows when file is selected) */}
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleFileUpload}
+                        disabled={isUploading || !selectedFile}
+                        className="btn-primary bg-police-red hover:bg-police-red-dark disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isUploading ? (
+                          <span className="flex items-center gap-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            Uploading...
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-2">
+                            <Upload className="w-4 h-4" />
+                            Upload to IPFS
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Upload Progress/Status */}
+                {isUploading && (
+                  <div className="mt-4 bg-police-blue-dark p-3 rounded border border-police-red">
+                    <div className="flex items-center gap-3">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-police-red"></div>
+                      <div>
+                        <p className="text-sm text-white">Uploading to IPFS via Pinata...</p>
+                        <p className="text-xs text-gray-400">Please wait while your file is being uploaded</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Upload Success Message */}
+                {uploadSuccess && (
+                  <div className="mt-4 bg-green-900 bg-opacity-20 border border-green-700 p-3 rounded">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-green-900 p-1 rounded-full">
+                        <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm text-green-500 font-semibold">Upload Successful!</p>
+                        <p className="text-xs text-gray-400">IPFS CID: {uploadedCID}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setUploadSuccess(false)}
+                        className="ml-auto text-gray-400 hover:text-white"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Manual Entry Fields (pre-filled after upload) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-400 mb-2">
@@ -953,7 +1128,8 @@ const AdminDashboard = ({ walletAddress, onCaseCreated, hasWriteAccess }: AdminD
                     value={caseDetails.fileName}
                     onChange={handleInputChange}
                     className="input-field"
-                    placeholder="Enter file name..."
+                    placeholder="Auto-filled after upload"
+                    readOnly={!!selectedFile}
                   />
                 </div>
                 <div>
@@ -966,25 +1142,40 @@ const AdminDashboard = ({ walletAddress, onCaseCreated, hasWriteAccess }: AdminD
                     value={caseDetails.fileType}
                     onChange={handleInputChange}
                     className="input-field"
-                    placeholder="Enter file type..."
+                    placeholder="Auto-filled after upload"
+                    readOnly={!!selectedFile}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-400 mb-2">
                     IPFS CID
                   </label>
-                  <input
-                    type="text"
-                    name="ipfsCid"
-                    value={caseDetails.ipfsCid}
-                    onChange={handleInputChange}
-                    className="input-field"
-                    placeholder="Enter IPFS CID..."
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      name="ipfsCid"
+                      value={caseDetails.ipfsCid}
+                      onChange={handleInputChange}
+                      className="input-field flex-1"
+                      placeholder="Auto-filled after upload"
+                      readOnly={!!uploadedCID}
+                    />
+                    {caseDetails.ipfsCid && (
+                      <a
+                        href={`https://gateway.pinata.cloud/ipfs/${caseDetails.ipfsCid}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-police-blue p-2 rounded hover:bg-police-blue-light transition-colors"
+                        title="View on IPFS"
+                      >
+                        <ExternalLink className="w-5 h-5 text-gray-400" />
+                      </a>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-400 mb-2">
-                    Size (in number of bytes)
+                    Size (in bytes)
                   </label>
                   <input
                     type="number"
@@ -992,7 +1183,8 @@ const AdminDashboard = ({ walletAddress, onCaseCreated, hasWriteAccess }: AdminD
                     value={caseDetails.size}
                     onChange={handleInputChange}
                     className="input-field"
-                    placeholder="Enter file size..."
+                    placeholder="Auto-filled after upload"
+                    readOnly={!!selectedFile}
                   />
                 </div>
                 <div>
