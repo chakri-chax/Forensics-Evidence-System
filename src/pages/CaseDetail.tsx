@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect } from "react";
-const { PINATA_GATEWAY } = import.meta.env.VITE_PINATA_GATEWAY || "gateway.pinata.cloud";
+const  PINATA_GATEWAY  = import.meta.env.VITE_PINATA_GATEWAY;
 import { showToast } from '../components/Toast';
 import { decodeContractError } from '../utils/contractErrors';
 import { getProvider } from '../utils/ethereum';
@@ -670,7 +670,7 @@ const CaseDetail = ({ caseId, onBack, walletAddress }: CaseDetailProps) => {
                     </div>
                     {item.ipfsCID && (
                       <a
-                        href={`${PINATA_GATEWAY}/${item.ipfsCID}`}
+                        href={`https://${PINATA_GATEWAY}/ipfs/${item.ipfsCID}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-police-red hover:underline text-xs block mt-1"

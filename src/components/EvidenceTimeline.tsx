@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { getIPFSUrl } from "../utils/pinata";
 import { formatAddress } from "../utils/ethereum";
-
+const  PINATA_GATEWAY  = import.meta.env.VITE_PINATA_GATEWAY;
 // Match the smart contract EvidenceData struct
 interface EvidenceData {
   fileName: string;
@@ -205,7 +205,7 @@ const EvidenceTimeline = ({
                     </button>
                     
                     <a
-                      href={ipfsUrl}
+                      href={`https://${PINATA_GATEWAY}/ipfs/${item.ipfsCID}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="p-2 text-police-red-accent hover:text-police-red transition-colors"

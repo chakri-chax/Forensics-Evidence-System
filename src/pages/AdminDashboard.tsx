@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { PlusCircle, Users, FileText, Shield, ShieldOff, RefreshCw, Upload, ExternalLink } from "lucide-react";
 import { getContract, getReadOnlyContract, formatAddress } from "../utils/ethereum";
 import { CaseStatus } from "../types";
+const  PINATA_GATEWAY  = import.meta.env.VITE_PINATA_GATEWAY;
 import { showToast } from '../components/Toast';
 import { toast } from 'react-hot-toast';
 import { decodeContractError } from '../utils/contractErrors';
@@ -1162,7 +1163,7 @@ const handleFileUpload = async () => {
                     />
                     {caseDetails.ipfsCid && (
                       <a
-                        href={`https://gateway.pinata.cloud/ipfs/${caseDetails.ipfsCid}`}
+                        href={`https://${PINATA_GATEWAY}/ipfs/${caseDetails.ipfsCid}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="bg-police-blue p-2 rounded hover:bg-police-blue-light transition-colors"
